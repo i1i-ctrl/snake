@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D City Car Driving - Crash Edition</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #87CEEB; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
+        #hud {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            color: #0f0;
+            font-size: 36px;
+            font-weight: bold;
+            font-family: monospace;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px 30px;
+            border-radius: 10px;
+            border: 2px solid #333;
+            text-shadow: 0 0 10px #0f0;
+            text-align: right;
+        }
+        #health-display {
+            font-size: 24px;
+            color: #fff;
+            text-shadow: 0 0 5px #fff;
+            margin-bottom: 5px;
+        }
+        #controls-info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 18px;
+            border: 1px solid #555;
+        }
+        /* Red flash overlay for when you crash */
+        #damage-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 0, 0, 0.4);
+            pointer-events: none;
+            z-index: 50;
+            display: none;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="damage-overlay"></div>
+
+    <div id="controls-info">
+        <strong>Controls:</strong><br><br>
+        W / Up : Accelerate<br>
+        S / Down : Brake / Reverse<br>
+        A / D : Steer Left / Right
+    </div>
+    
+    <div id="hud">
+        <div id="health-display">Condition: 100%</div>
+        <span id="speed-display">0 MPH</span>
+    </div>
+
+<script>
+// --- 1. Scene Setup ---
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB); 
+scene.fog = new THREE.FogExp2(0x87CEEB, 0.002); 
+
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// --- 2. Lighting ---
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+scene.add(ambientLight);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+dirLight.position.set(100, 200, 50);
+scene.add(dirLight);
+
+// --- 3. The City Environment & Collision Data ---
+const groundGeo = new THREE.PlaneGeometry(4000, 4000);
+const groundMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI / 2;
+scene.add(ground);
+
+const citySize = 12; 
+const blockSize = 100;
+const roadWidth = 40;
+const buildingGeo = new THREE.BoxGeometry(1, 1, 1);
+
+// Array to store building boundaries for crash detection
+const buildingsData = [];
+
+for (let x = -citySize; x <= citySize; x++) {
+    for (let z = -citySize; z <= citySize; z++) {
+        if (Math.abs(x) < 1 && Math.abs(z) < 1) continue; // Leave center open for spawning
+
+        const bWidth = blockSize - (Math.random() * 20);
+        const bDepth = blockSize - (Math.random() * 20);
+        const bHeight = 30 + (Math.random() * 150); 
+
+        const colorHue = Math.random();
+        const mat = new THREE.MeshLambertMaterial({ 
+            color: new THREE.Color().setHSL(colorHue, 0.4, Math.random() * 0.3 + 0.2) 
+        });
+
+        const building = new THREE.Mesh(buildingGeo, mat);
+        building.scale.set(bWidth, bHeight, bDepth);
+
+        const posX = x * (blockSize + roadWidth);
+        const posZ = z * (blockSize + roadWidth);
+        
+        building.position.set(posX, bHeight / 2, posZ);
+        scene.add(building);
+
+        // Store the X and Z boundaries of this building to check for crashes later
+        buildingsData.push({
+            minX: posX - (bWidth / 2),
+            maxX: posX + (bWidth / 2),
+            minZ: posZ - (bDepth / 2),
+            maxZ: posZ + (bDepth / 2)
+        });
+    }
+}
+
+// Draw Road Markings (Yellow lines down the middle of the streets)
+const mapSpan = (blockSize + roadWidth) * citySize * 2;
+const lineMat = new THREE.MeshBasicMaterial({ color: 0xffcc00 }); 
+
+// Vertical lines
+const lineGeoV = new THREE.BoxGeometry(2, 0.1, mapSpan);
+for (let x = -citySize; x <= citySize; x++) {
+    const line = new THREE.Mesh(lineGeoV, lineMat);
+    line.position.set(x * (blockSize + roadWidth), 0.1, 0);
+    scene.add(line);
+}
+// Horizontal lines
+const lineGeoH = new THREE.BoxGeometry(mapSpan, 0.1, 2);
+for (let z = -citySize; z <= citySize; z++) {
+    const line = new THREE.Mesh(lineGeoH, lineMat);
+    line.position.set(0, 0.1, z * (blockSize + roadWidth));
+    scene.add(line);
+}
+
+// --- 4. The Car ---
+const car = new THREE.Group();
+
+const chassisGeo = new THREE.BoxGeometry(4, 1.2, 9);
+const chassisMat = new THREE.MeshLambertMaterial({ color: 0xff1111 }); 
+const chassis = new THREE.Mesh(chassisGeo, chassisMat);
+chassis.position.y = 1.5;
+car.add(chassis);
+
+const cabinGeo = new THREE.BoxGeometry(3.6, 1.2, 4.5);
+const cabinMat = new THREE.MeshLambertMaterial({ color: 0x990000 });
+const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+cabin.position.set(0, 2.7, -0.5);
+car.add(cabin);
+
+const wheelGeo = new THREE.CylinderGeometry(0.9, 0.9, 0.8, 16);
+wheelGeo.rotateZ(Math.PI / 2); 
+const wheelMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
+
+const wheelPositions = [
+    [-2.2, 0.9, 2.8],  
+    [ 2.2, 0.9, 2.8],  
+    [-2.2, 0.9, -3.0], 
+    [ 2.2, 0.9, -3.0]  
+];
+
+wheelPositions.forEach(pos => {
+    const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+    wheel.position.set(pos[0], pos[1], pos[2]);
+    car.add(wheel);
+});
+
+scene.add(car);
+
+// --- 5. Controls, Physics & Health ---
+const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false, w: false, a: false, s: false, d: false };
+
+window.addEventListener('keydown', e => { if(keys.hasOwnProperty(e.key)) keys[e.key] = true; });
+window.addEventListener('keyup', e => { if(keys.hasOwnProperty(e.key)) keys[e.key] = false; });
+
+let speed = 0;
+let carAngle = 0;
+let health = 100;
+let isTotaled = false;
+
+const acceleration = 0.03;
+const braking = 0.05;
+const friction = 0.97; 
+const maxSpeed = 3.0;
+const turnSpeed = 0.04;
+const carRadius = 4.5; // Used for collision math
+
+const speedDisplay = document.getElementById('speed-display');
+const healthDisplay = document.getElementById('health-display');
+const damageOverlay = document.getElementById('damage-overlay');
+
+// --- 6. Main Game Loop ---
+function animate() {
+    requestAnimationFrame(animate);
+
+    if (!isTotaled) {
+        // 1. Process Input
+        const up = keys.ArrowUp || keys.w;
+        const down = keys.ArrowDown || keys.s;
+        const left = keys.ArrowLeft || keys.a;
+        const right = keys.ArrowRight || keys.d;
+
+        if (up) speed += acceleration;
+        if (down) speed -= braking;
+        
+        speed *= friction; // Drag
+        
+        if (speed > maxSpeed) speed = maxSpeed;
+        if (speed < -maxSpeed/2) speed = -maxSpeed/2; 
+
+        if (Math.abs(speed) > 0.05) {
+            const direction = speed > 0 ? 1 : -1; 
+            if (left) carAngle += turnSpeed * direction;
+            if (right) carAngle -= turnSpeed * direction;
+        }
+    } else {
+        speed *= 0.90; // Come to a grinding halt if totaled
+    }
+
+    // 2. Physics & COLLISION DETECTION
+    car.rotation.y = carAngle;
+    
+    // Calculate where the car WANTS to go
+    let nextX = car.position.x - Math.sin(carAngle) * speed;
+    let nextZ = car.position.z - Math.cos(carAngle) * speed;
+    
+    let crashed = false;
+
+    // Check if next position is inside any building
+    for (let b of buildingsData) {
+        if (nextX + carRadius > b.minX && nextX - carRadius < b.maxX &&
+            nextZ + carRadius > b.minZ && nextZ - carRadius < b.maxZ) {
+            crashed = true;
+            break;
+        }
+    }
+
+    if (crashed && !isTotaled) {
+        // Impact Damage!
+        let impact = Math.abs(speed);
+        if (impact > 0.5) { 
+            health -= impact * 20; // Fast crashes hurt more
+            if (health <= 0) {
+                health = 0;
+                isTotaled = true;
+                speedDisplay.innerText = "TOTALED";
+                speedDisplay.style.color = "#ff0000";
+                healthDisplay.style.color = "#ff0000";
+            }
+
+            healthDisplay.innerText = `Condition: ${Math.floor(health)}%`;
+
+            // Flash Screen Red
+            damageOverlay.style.display = 'block';
+            setTimeout(() => damageOverlay.style.display = 'none', 150);
+        }
+        
+        // Bounce off the wall
+        speed = -speed * 0.4; 
+    } else {
+        // Safe to move
+        car.position.x = nextX;
+        car.position.z = nextZ;
+    }
+
+    // 3. Update Camera
+    const camDistance = 25;
+    const camHeight = 10;
+    
+    const goalX = car.position.x + Math.sin(carAngle) * camDistance;
+    const goalZ = car.position.z + Math.cos(carAngle) * camDistance;
+    
+    camera.position.x += (goalX - camera.position.x) * 0.1;
+    camera.position.z += (goalZ - camera.position.z) * 0.1;
+    camera.position.y = car.position.y + camHeight;
+    
+    camera.lookAt(car.position.x, car.position.y + 2, car.position.z);
+
+    // 4. Update HUD
+    if (!isTotaled) {
+        let displaySpeed = Math.abs(Math.round(speed * 45)); 
+        speedDisplay.innerText = `${displaySpeed} MPH`;
+        
+        // Make color shift from green to red based on speed
+        if (displaySpeed > 100) speedDisplay.style.color = '#ffaa00';
+        else if (displaySpeed > 120) speedDisplay.style.color = '#ff0000';
+        else speedDisplay.style.color = '#0f0';
+    }
+
+    renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+animate();
+</script>
+
+</body>
+</html>

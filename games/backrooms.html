@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Temu-Backrooms</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #111;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+        }
+        canvas {
+            display: block;
+            border: 2px solid #333;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            cursor: crosshair;
+        }
+        #overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+        #overlay h1 { margin: 0 0 10px 0; }
+        #message-screen {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            font-size: 36px;
+            font-weight: bold;
+            z-index: 20;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<img id="smilerTex" src="smiler.svg" style="display:none;" alt="Smiler">
+
+<div id="game-container">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div id="overlay">
+        <h1>The Temu-Backrooms</h1>
+        <p>Click Anywhere to Start & Lock Mouse</p>
+        <p>WASD to Move | SHIFT to Sprint | ESC to Pause</p>
+    </div>
+    <div id="message-screen"></div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d', { alpha: false });
+const overlay = document.getElementById('overlay');
+const messageScreen = document.getElementById('message-screen');
+const smilerTex = document.getElementById('smilerTex');
+
+// --- 2. Game Map & Global Settings ---
+let current_level_name = "";
+let level_type = "infinite";
+const world_map = new Map();
+const CHUNK_SIZE = 6;
+const generated_chunks = new Set();
+
+let wall_colors = {};
+let floor_color = [0, 0, 0];
+let bg_color = [0, 0, 0];
+let min_walls_per_chunk = 2;
+let max_walls_per_chunk = 3;
+let MAX_DEPTH = 6.0;
+
+// --- 3. Entity Variables ---
+let px = 1.5, py = 1.5;
+let pa = 0.0;
+let walk_cycle = 0.0;
+let orbs = [];
+
+let smiler_x = 0.0, smiler_y = 0.0;
+let smiler_active = false;
+let has_smiler = false;
+let smiler_trigger_time = 10;
+let smiler_speed = 0.18;
+let level_start_time = 0.0;
+
+let gameState = "playing"; // playing, dead, won
+
+// --- Helper Functions ---
+function getMap(x, y) {
+    return world_map.get(`${Math.floor(x)},${Math.floor(y)}`) || 0;
+}
+function setMap(x, y, val) {
+    world_map.set(`${Math.floor(x)},${Math.floor(y)}`, val);
+}
+function randInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+function randChoice(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// --- 4. The Level System ---
+function teleport_to_random_level() {
+    const all_levels = ["lobby", "poolrooms", "pipedreams", "run", "warehouse", 
+                        "office", "lightsout", "levelfun", "hotel", "ocean", "the_end", "true_ending"];
+    let levels = all_levels.filter(l => l !== current_level_name);
+    let next_level = randChoice(levels);
+    
+    if (next_level === "lobby") load_lobby();
+    else if (next_level === "poolrooms") load_poolrooms();
+    else if (next_level === "pipedreams") load_pipe_dreams();
+    else if (next_level === "run") load_level_run();
+    else if (next_level === "warehouse") load_warehouse();
+    else if (next_level === "office") load_office();
+    else if (next_level === "lightsout") load_lights_out();
+    else if (next_level === "levelfun") load_level_fun();
+    else if (next_level === "hotel") load_hotel();
+    else if (next_level === "ocean") load_ocean();
+    else if (next_level === "the_end") load_the_end();
+    else if (next_level === "true_ending") load_true_ending();
+}
+
+function reset_engine_for_new_level() {
+    world_map.clear();
+    generated_chunks.clear();
+    orbs = [];
+    smiler_active = false;
+    has_smiler = false;
+    MAX_DEPTH = 6.0;
+    level_start_time = Date.now() / 1000;
+}
+
+function setup_infinite_player_and_orbs() {
+    px = 1.5; py = 1.5; pa = 0.0;
+    for (let dy of [-1, 0, 1]) {
+        for (let dx of [-1, 0, 1]) {
+            setMap(1 + dx, 1 + dy, 0);
+        }
+    }
+    let guaranteed_x = randInt(15, 30) + 0.5;
+    let guaranteed_y = randInt(15, 30) + 0.5;
+    setMap(Math.floor(guaranteed_x), Math.floor(guaranteed_y), 0);
+    orbs.push({x: guaranteed_x, y: guaranteed_y});
+}
+
+// --- LEVEL DEFINITIONS ---
+function load_lobby() {
+    reset_engine_for_new_level();
+    current_level_name = "lobby"; level_type = "infinite";
+    bg_color = [89, 80, 29]; floor_color = [128, 110, 8];
+    wall_colors = {1:[145,132,35], 2:[145,132,35], 3:[145,132,35], 4:[145,132,35]};
+    min_walls_per_chunk = 2; max_walls_per_chunk = 3;
+    setup_infinite_player_and_orbs();
+}
+function load_poolrooms() {
+    reset_engine_for_new_level();
+    current_level_name = "poolrooms"; level_type = "infinite";
+    bg_color = [220, 240, 255]; floor_color = [30, 160, 170];
+    wall_colors = {1:[200,230,230], 2:[180,210,220], 3:[210,240,240], 4:[190,220,230]};
+    min_walls_per_chunk = 0; max_walls_per_chunk = 2;
+    setup_infinite_player_and_orbs();
+}
+function load_pipe_dreams() {
+    reset_engine_for_new_level();
+    current_level_name = "pipedreams"; level_type = "infinite";
+    bg_color = [10, 10, 10]; floor_color = [30, 30, 30];
+    wall_colors = {1:[70,60,50], 2:[50,40,30], 3:[80,70,60], 4:[60,50,40]};
+    min_walls_per_chunk = 4; max_walls_per_chunk = 6;
+    setup_infinite_player_and_orbs();
+}
+function load_warehouse() {
+    reset_engine_for_new_level();
+    current_level_name = "warehouse"; level_type = "infinite";
+    bg_color = [40, 40, 45]; floor_color = [60, 60, 65];
+    wall_colors = {1:[100,100,100], 2:[90,95,90], 3:[110,110,110], 4:[80,80,80]};
+    min_walls_per_chunk = 2; max_walls_per_chunk = 4;
+    setup_infinite_player_and_orbs();
+}
+function load_office() {
+    reset_engine_for_new_level();
+    current_level_name = "office"; level_type = "infinite";
+    bg_color = [200, 200, 190]; floor_color = [150, 140, 120];
+    wall_colors = {1:[220,220,210], 2:[240,240,230], 3:[210,210,200], 4:[230,230,220]};
+    min_walls_per_chunk = 1; max_walls_per_chunk = 3;
+    setup_infinite_player_and_orbs();
+}
+function load_lights_out() {
+    reset_engine_for_new_level();
+    current_level_name = "lightsout"; level_type = "infinite";
+    MAX_DEPTH = 3.0; 
+    bg_color = [5, 5, 5]; floor_color = [10, 10, 10];
+    wall_colors = {1:[40,40,40], 2:[30,30,30], 3:[50,50,50], 4:[35,35,35]};
+    min_walls_per_chunk = 5; max_walls_per_chunk = 7;
+    setup_infinite_player_and_orbs();
+}
+function load_level_fun() {
+    reset_engine_for_new_level();
+    current_level_name = "levelfun"; level_type = "infinite";
+    bg_color = [255, 100, 200]; floor_color = [255, 255, 100];
+    wall_colors = {1:[0,255,255], 2:[255,0,255], 3:[150,255,50], 4:[255,150,0]};
+    min_walls_per_chunk = 1; max_walls_per_chunk = 4;
+    setup_infinite_player_and_orbs();
+    has_smiler = true; smiler_trigger_time = 25; smiler_speed = 0.13;
+}
+function load_hotel() {
+    reset_engine_for_new_level();
+    current_level_name = "hotel"; level_type = "infinite";
+    bg_color = [50, 30, 20]; floor_color = [80, 20, 20];
+    wall_colors = {1:[120,90,50], 2:[100,70,40], 3:[130,100,60], 4:[90,60,30]};
+    min_walls_per_chunk = 2; max_walls_per_chunk = 4;
+    setup_infinite_player_and_orbs();
+}
+function load_ocean() {
+    reset_engine_for_new_level();
+    current_level_name = "ocean"; level_type = "infinite";
+    MAX_DEPTH = 4.0;
+    bg_color = [5, 15, 25]; floor_color = [10, 30, 50];
+    wall_colors = {1:[30,50,60], 2:[25,45,55], 3:[35,55,65], 4:[20,40,50]};
+    min_walls_per_chunk = 1; max_walls_per_chunk = 2;
+    setup_infinite_player_and_orbs();
+}
+function load_the_end() {
+    reset_engine_for_new_level();
+    current_level_name = "the_end"; level_type = "infinite";
+    bg_color = [150, 150, 150]; floor_color = [100, 100, 100];
+    wall_colors = {1:[80,50,30], 2:[70,40,20], 3:[90,60,40], 4:[60,30,10]};
+    min_walls_per_chunk = 4; max_walls_per_chunk = 6;
+    setup_infinite_player_and_orbs();
+    has_smiler = true; smiler_trigger_time = 15; smiler_speed = 0.20;
+}
+function load_true_ending() {
+    reset_engine_for_new_level();
+    current_level_name = "true_ending"; level_type = "infinite";
+    bg_color = [20, 0, 30]; floor_color = [50, 0, 50];
+    wall_colors = {1:[0,255,100], 2:[255,0,100], 3:[0,100,255], 4:[255,255,0]};
+    min_walls_per_chunk = 1; max_walls_per_chunk = 3;
+    setup_infinite_player_and_orbs();
+}
+function load_level_run() {
+    reset_engine_for_new_level();
+    current_level_name = "run"; level_type = "fixed";
+    bg_color = [80, 10, 10]; floor_color = [40, 10, 10];
+    wall_colors = {1:[150,30,30], 2:[180,40,40], 3:[120,20,20], 4:[200,50,50]};
+    
+    for (let y = -2; y < 100; y++) {
+        setMap(0, y, randInt(1, 4));
+        setMap(4, y, randInt(1, 4));
+    }
+    for (let x = 0; x < 5; x++) setMap(x, -2, randInt(1, 4));
+        
+    for (let y = 10; y < 90; y += 6) {
+        let obs_x = randChoice([1, 2, 3]);
+        setMap(obs_x, y, randInt(1, 4));
+    }
+    px = 2.0; py = 0.0; pa = Math.PI / 2;
+    orbs.push({x: 2.0, y: 95.0});
+    
+    has_smiler = true; smiler_trigger_time = 10; smiler_speed = 0.18;
+    smiler_x = 2.0; smiler_y = -1.0;
+}
+
+// --- 5. Chunk Generation ---
+function generate_chunk(cx, cy) {
+    generated_chunks.add(`${cx},${cy}`);
+    for (let y = cy * CHUNK_SIZE; y < (cy + 1) * CHUNK_SIZE; y++) {
+        for (let x = cx * CHUNK_SIZE; x < (cx + 1) * CHUNK_SIZE; x++) {
+            setMap(x, y, 0);
+        }
+    }
+    let num_walls = randInt(min_walls_per_chunk, max_walls_per_chunk);
+    for (let i = 0; i < num_walls; i++) {
+        let length = randInt(3, 6);
+        let is_horizontal = Math.random() > 0.5;
+        let start_x = randInt(cx * CHUNK_SIZE, (cx + 1) * CHUNK_SIZE - 1);
+        let start_y = randInt(cy * CHUNK_SIZE, (cy + 1) * CHUNK_SIZE - 1);
+        let color = randInt(1, 4);
+        
+        for (let j = 0; j < length; j++) {
+            if (is_horizontal) setMap(start_x + j, start_y, color);
+            else setMap(start_x, start_y + j, color);
+        }
+    }
+    if (cx === 0 && cy === 0) {
+        for (let dy of [-1, 0, 1]) {
+            for (let dx of [-1, 0, 1]) setMap(1 + dx, 1 + dy, 0);
+        }
+    }
+    if ((Math.abs(cx) > 1 || Math.abs(cy) > 1) && Math.random() < 0.05) {
+        let orb_x = (cx * CHUNK_SIZE) + randInt(1, CHUNK_SIZE - 2) + 0.5;
+        let orb_y = (cy * CHUNK_SIZE) + randInt(1, CHUNK_SIZE - 2) + 0.5;
+        setMap(orb_x, orb_y, 0);
+        orbs.push({x: orb_x, y: orb_y});
+    }
+}
+
+// --- 6. Controls ---
+const FOV = Math.PI / 3;
+const HALF_FOV = FOV / 2;
+const NUM_RAYS = 200; 
+
+const keys = { w: false, s: false, a: false, d: false, Shift: false, ArrowLeft: false, ArrowRight: false, ArrowUp: false, ArrowDown: false };
+
+window.addEventListener('keydown', e => { if (keys.hasOwnProperty(e.key)) keys[e.key] = true; });
+window.addEventListener('keyup', e => { if (keys.hasOwnProperty(e.key)) keys[e.key] = false; });
+
+document.addEventListener('mousemove', e => {
+    if (document.pointerLockElement === canvas) {
+        pa += e.movementX * 0.003;
+    }
+});
+
+document.addEventListener('click', () => {
+    if (gameState === "playing") {
+        canvas.requestPointerLock();
+        overlay.style.display = 'none';
+    }
+});
+
+document.addEventListener('pointerlockchange', () => {
+    if (document.pointerLockElement !== canvas && gameState === "playing") {
+        overlay.style.display = 'flex';
+    }
+});
+
+// --- 7 & 8. Raycaster & Renderer ---
+function draw_minimap(sw, sh) {
+    const map_scale = 8;
+    const map_x_offset = 20;
+    const map_y_offset = sh - 20;
+    const radar_radius = 6;
+    
+    let p_grid_x = Math.floor(px);
+    let p_grid_y = Math.floor(py);
+    
+    for (let y = p_grid_y - radar_radius; y < p_grid_y + radar_radius; y++) {
+        for (let x = p_grid_x - radar_radius; x < p_grid_x + radar_radius; x++) {
+            let block = getMap(x, y);
+            if (block > 0) {
+                let draw_x = map_x_offset + (x - px + radar_radius) * map_scale;
+                let draw_y = map_y_offset - (y - py + radar_radius) * map_scale;
+                let c = wall_colors[block] || [255,255,255];
+                ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+                ctx.fillRect(draw_x, draw_y, map_scale, map_scale);
+            }
+        }
+    }
+    
+    // Orbs
+    for (let orb of orbs) {
+        if (Math.abs(orb.x - px) <= radar_radius && Math.abs(orb.y - py) <= radar_radius) {
+            let dx = map_x_offset + (orb.x - px + radar_radius) * map_scale;
+            let dy = map_y_offset - (orb.y - py + radar_radius) * map_scale;
+            ctx.fillStyle = "rgb(50,255,100)";
+            ctx.beginPath(); ctx.arc(dx, dy, 3, 0, Math.PI*2); ctx.fill();
+        }
+    }
+    
+    // Smiler
+    if (has_smiler && smiler_active) {
+        if (Math.abs(smiler_x - px) <= radar_radius && Math.abs(smiler_y - py) <= radar_radius) {
+            let dx = map_x_offset + (smiler_x - px + radar_radius) * map_scale;
+            let dy = map_y_offset - (smiler_y - py + radar_radius) * map_scale;
+            ctx.fillStyle = "white";
+            ctx.beginPath(); ctx.arc(dx, dy, 3, 0, Math.PI*2); ctx.fill();
+        }
+    }
+
+    // Player
+    let pdx = map_x_offset + radar_radius * map_scale;
+    let pdy = map_y_offset - radar_radius * map_scale;
+    ctx.fillStyle = "rgb(150,150,255)";
+    ctx.beginPath(); ctx.arc(pdx, pdy, 3, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = "rgb(150,150,255)";
+    ctx.beginPath();
+    ctx.moveTo(pdx, pdy);
+    
+    // FIXED: Y axis inverted so pointer faces correctly in the minimap
+    ctx.lineTo(pdx + Math.cos(pa) * 10, pdy - Math.sin(pa) * 10); 
+    ctx.stroke();
+}
+
+function cast_rays() {
+    const sw = canvas.width;
+    const sh = canvas.height;
+    
+    // Floor and Sky
+    let bob_offset = Math.sin(walk_cycle) * 15;
+    ctx.fillStyle = `rgb(${bg_color[0]},${bg_color[1]},${bg_color[2]})`;
+    ctx.fillRect(0, 0, sw, sh / 2 + bob_offset);
+    ctx.fillStyle = `rgb(${floor_color[0]},${floor_color[1]},${floor_color[2]})`;
+    ctx.fillRect(0, sh / 2 + bob_offset, sw, sh / 2 - bob_offset);
+    
+    let start_angle = pa - HALF_FOV;
+    let step_angle = FOV / NUM_RAYS;
+    let slice_width = Math.ceil(sw / NUM_RAYS);
+    let screen_dist = sw / 2;
+    let z_buffer = [];
+    
+    for (let ray = 0; ray < NUM_RAYS; ray++) {
+        let ray_angle = start_angle + ray * step_angle;
+        let distance = 0.0;
+        let hit = false;
+        let hit_color = [255, 255, 255];
+        
+        let eye_x = Math.cos(ray_angle);
+        let eye_y = Math.sin(ray_angle);
+        
+        while (!hit && distance < MAX_DEPTH) {
+            distance += 0.1;
+            let test_x = Math.floor(px + eye_x * distance);
+            let test_y = Math.floor(py + eye_y * distance);
+            let block_type = getMap(test_x, test_y);
+            
+            if (block_type > 0) {
+                hit = true;
+                hit_color = wall_colors[block_type] || [255, 255, 255];
+            }
+        }
+        
+        distance *= Math.cos(pa - ray_angle); // Fix fisheye
+        if (distance === 0) distance = 0.1;
+        z_buffer.push(distance);
+        
+        let wall_height = screen_dist / distance;
+        if (wall_height > sh) wall_height = sh;
+        
+        let shade = Math.max(0, 1 - Math.pow(distance / MAX_DEPTH, 1.5));
+        let r = Math.floor(hit_color[0] * shade);
+        let g = Math.floor(hit_color[1] * shade);
+        let b = Math.floor(hit_color[2] * shade);
+        
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        let screen_x = ray * (sw / NUM_RAYS);
+        ctx.fillRect(screen_x, (sh / 2) - (wall_height / 2) + bob_offset, slice_width, wall_height);
+    }
+    
+    // --- DRAW SMILER TEXTURE ---
+    if (has_smiler && smiler_active) {
+        let dist_to_smiler = Math.hypot(smiler_x - px, smiler_y - py);
+        let smiler_angle = Math.atan2(smiler_y - py, smiler_x - px);
+        let diff_s = smiler_angle - pa;
+        while (diff_s > Math.PI) diff_s -= 2 * Math.PI;
+        while (diff_s < -Math.PI) diff_s += 2 * Math.PI;
+        
+        if (Math.abs(diff_s) < HALF_FOV && dist_to_smiler > 0.3) {
+            let ray_index = Math.floor((diff_s + HALF_FOV) / step_angle);
+            if (ray_index >= 0 && ray_index < NUM_RAYS && dist_to_smiler < z_buffer[ray_index]) {
+                let smiler_screen_x = (diff_s / FOV + 0.5) * sw;
+                let smiler_size = Math.min(300, (sw / dist_to_smiler) * 0.15);
+                let jx = randInt(-4, 4);
+                let jy = randInt(-4, 4);
+                let cy = (sh / 2) + bob_offset + jy;
+                
+                // Draw Image instead of circles
+                if (smilerTex.complete && smilerTex.naturalHeight !== 0) {
+                    let img_size = smiler_size * 2;
+                    ctx.drawImage(smilerTex, smiler_screen_x + jx - smiler_size, cy - smiler_size, img_size, img_size);
+                } else {
+                    // Fallback to dots if image fails to load
+                    ctx.fillStyle = "white";
+                    ctx.beginPath(); ctx.arc(smiler_screen_x + jx, cy, smiler_size, 0, Math.PI*2); ctx.fill();
+                }
+            }
+        }
+    }
+
+    // --- DRAW ORBS ---
+    for (let orb of orbs) {
+        let dist_to_orb = Math.hypot(orb.x - px, orb.y - py);
+        let orb_angle = Math.atan2(orb.y - py, orb.x - px);
+        let diff = orb_angle - pa;
+        while (diff > Math.PI) diff -= 2 * Math.PI;
+        while (diff < -Math.PI) diff += 2 * Math.PI;
+        
+        if (Math.abs(diff) < HALF_FOV && dist_to_orb > 0.3) {
+            let ray_index = Math.floor((diff + HALF_FOV) / step_angle);
+            if (ray_index >= 0 && ray_index < NUM_RAYS && dist_to_orb < z_buffer[ray_index]) {
+                let orb_screen_x = (diff / FOV + 0.5) * sw;
+                let orb_size = Math.min(200, (sw / dist_to_orb) * 0.1);
+                let pulse = Math.sin(walk_cycle * 2) * 5;
+                
+                ctx.fillStyle = "rgb(50,255,100)";
+                ctx.beginPath();
+                ctx.arc(orb_screen_x, (sh / 2) + bob_offset + pulse, orb_size, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+    }
+    
+    draw_minimap(sw, sh);
+}
+
+// --- 9. Game Loop ---
+function game_loop() {
+    if (gameState !== "playing") return;
+
+    let is_walking = false;
+    
+    // Endings / Teleport
+    for (let orb of orbs) {
+        if (Math.hypot(orb.x - px, orb.y - py) < 0.8) {
+            if (current_level_name === "true_ending") {
+                gameState = "won";
+                messageScreen.style.display = "flex";
+                messageScreen.style.backgroundColor = "white";
+                messageScreen.style.color = "black";
+                messageScreen.innerText = "YOU FINALLY ESCAPED.";
+                document.exitPointerLock();
+                return;
+            } else {
+                teleport_to_random_level();
+                break;
+            }
+        }
+    }
+    
+    // Smiler Logic
+    if (has_smiler) {
+        let time_alive = (Date.now() / 1000) - level_start_time;
+        if (!smiler_active && time_alive >= smiler_trigger_time) {
+            smiler_active = true;
+            if (level_type === "infinite") {
+                smiler_x = px - Math.cos(pa) * 5;
+                smiler_y = py - Math.sin(pa) * 5;
+            }
+        }
+        if (smiler_active) {
+            let angle_to_player = Math.atan2(py - smiler_y, px - smiler_x);
+            let frame_speed = smiler_speed * 0.3; 
+            smiler_x += Math.cos(angle_to_player) * frame_speed;
+            smiler_y += Math.sin(angle_to_player) * frame_speed;
+            
+            if (Math.hypot(smiler_x - px, smiler_y - py) < 0.8) {
+                gameState = "dead";
+                messageScreen.style.display = "flex";
+                messageScreen.style.backgroundColor = "black";
+                messageScreen.style.color = "red";
+                messageScreen.innerText = "YOU GOT CAUGHT .";
+                document.exitPointerLock();
+                return;
+            }
+        }
+    }
+    
+    // Map Generation
+    if (level_type === "infinite") {
+        let current_chunk_x = Math.floor(px / CHUNK_SIZE);
+        let current_chunk_y = Math.floor(py / CHUNK_SIZE);
+        for (let dy of [-1, 0, 1]) {
+            for (let dx of [-1, 0, 1]) {
+                let check = `${current_chunk_x + dx},${current_chunk_y + dy}`;
+                if (!generated_chunks.has(check)) {
+                    generate_chunk(current_chunk_x + dx, current_chunk_y + dy);
+                }
+            }
+        }
+    }
+    
+    // Keyboard Turning
+    if (keys.ArrowLeft) pa -= 0.05;
+    if (keys.ArrowRight) pa += 0.05;
+    
+    // Movement
+    let move_step = keys.Shift ? 0.08 : 0.04;
+    let bob_speed = keys.Shift ? 0.2 : 0.1;
+    
+    if (keys.w || keys.ArrowUp) {
+        let nx = px + Math.cos(pa) * move_step;
+        let ny = py + Math.sin(pa) * move_step;
+        if (getMap(nx, ny) === 0) { px = nx; py = ny; is_walking = true; }
+    }
+    if (keys.s || keys.ArrowDown) {
+        let nx = px - Math.cos(pa) * move_step;
+        let ny = py - Math.sin(pa) * move_step;
+        if (getMap(nx, ny) === 0) { px = nx; py = ny; is_walking = true; }
+    }
+    if (keys.a) {
+        let nx = px + Math.cos(pa - Math.PI/2) * move_step;
+        let ny = py + Math.sin(pa - Math.PI/2) * move_step;
+        if (getMap(nx, ny) === 0) { px = nx; py = ny; is_walking = true; }
+    }
+    if (keys.d) {
+        let nx = px + Math.cos(pa + Math.PI/2) * move_step;
+        let ny = py + Math.sin(pa + Math.PI/2) * move_step;
+        if (getMap(nx, ny) === 0) { px = nx; py = ny; is_walking = true; }
+    }
+    
+    if (is_walking) {
+        walk_cycle += bob_speed;
+    } else if (walk_cycle % Math.PI > 0.1) {
+        walk_cycle += 0.1; 
+    }
+    
+    cast_rays();
+    requestAnimationFrame(game_loop);
+}
+
+// Start
+load_lobby();
+requestAnimationFrame(game_loop);
+</script>
+
+</body>
+</html>

@@ -3,61 +3,85 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Play a beginner-built Snake browser game. Use the arrow keys to eat apples, grow the snake, and beat your score.">
+  <meta name="description" content="Gili Games Portal is a free online arcade with Snake, car driving, target shooting, shape blast, and backrooms games.">
   <meta name="robots" content="index, follow">
   <meta name="author" content="Gili">
-  <meta property="og:title" content="Snake Game by Gili">
-  <meta property="og:description" content="A free online Snake game built with HTML, CSS, and JavaScript.">
+  <meta property="og:title" content="Gili Games Portal">
+  <meta property="og:description" content="Play Gili's free online HTML games in a colorful arcade portal.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://i1i-ctrl.github.io/snake/">
   <link rel="canonical" href="https://i1i-ctrl.github.io/snake/">
-  <title>Snake Game by Gili | Free Online Browser Game</title>
+  <title>Gili Games Portal | Free Online HTML Games</title>
   <link rel="stylesheet" href="style.css">
   <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "VideoGame",
-      "name": "Snake Game by Gili",
-      "description": "A free online Snake browser game where the player uses arrow keys to eat apples, grow the snake, and avoid crashing.",
+      "@type": "WebSite",
+      "name": "Gili Games Portal",
       "url": "https://i1i-ctrl.github.io/snake/",
-      "applicationCategory": "Game",
-      "operatingSystem": "Any",
-      "author": {
-        "@type": "Person",
-        "name": "Gili"
-      }
+      "description": "A colorful free online arcade portal with HTML games made by Gili."
     }
   </script>
 </head>
 <body>
-  <main class="game-shell">
-    <section class="top-bar" aria-label="Game information">
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="Gili Games home">
+      <span class="brand-mark">G</span>
+      <span>
+        <strong>Gili Games</strong>
+        <small>HTML arcade</small>
+      </span>
+    </a>
+
+    <nav class="top-nav" aria-label="Game categories">
+      <a href="#all-games">All games</a>
+      <a href="#all-games">Action</a>
+      <a href="#all-games">Puzzle</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="page-title">
       <div>
-        <p class="eyebrow">Games Portal</p>
-        <h1>Snake</h1>
-      </div>
-
-      <div class="score-panel" aria-live="polite">
-        <span>Score</span>
-        <strong id="score">0</strong>
+        <p class="eyebrow">Play now</p>
+        <h1 id="page-title">Gili Games Portal</h1>
+        <p class="hero-text">Choose a game and jump straight in.</p>
       </div>
     </section>
 
-    <section class="board-wrap" aria-label="Snake game board">
-      <canvas id="game-board" width="480" height="480"></canvas>
-      <div id="message" class="message">
-        <strong>Press Start</strong>
-        <span>Use the arrow keys to move.</span>
+    <section class="games-section" id="all-games" aria-label="All games">
+      <div class="section-title">
+        <h2>Games</h2>
+        <span>5 playable games</span>
       </div>
-    </section>
 
-    <section class="controls" aria-label="Game controls">
-      <button id="start-button" type="button">Start</button>
-      <button id="pause-button" type="button">Pause</button>
-      <button id="restart-button" type="button">Restart</button>
+      <div class="game-grid">
+        <a class="game-card card-large" href="games/snake.html">
+          <img src="assets/thumb-snake.svg" alt="Snake game thumbnail">
+          <span>Snake</span>
+        </a>
+
+        <a class="game-card" href="games/car.html">
+          <img src="assets/thumb-car.svg" alt="Car driving game thumbnail">
+          <span>City Car</span>
+        </a>
+
+        <a class="game-card" href="games/shooting-game.html">
+          <img src="assets/thumb-shooter.svg" alt="Target shooter game thumbnail">
+          <span>Target Shooter</span>
+        </a>
+
+        <a class="game-card" href="games/shape-blast.html">
+          <img src="assets/thumb-shape-blast.svg" alt="Shape Blast game thumbnail">
+          <span>Shape Blast</span>
+        </a>
+
+        <a class="game-card" href="games/backrooms.html">
+          <img src="assets/thumb-backrooms.svg" alt="Backrooms game thumbnail">
+          <span>Backrooms</span>
+        </a>
+      </div>
     </section>
   </main>
-
-  <script src="script.js"></script>
 </body>
 </html>

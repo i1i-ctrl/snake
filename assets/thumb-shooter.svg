@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 240">
+  <rect width="360" height="240" fill="#18192d"/>
+  <path d="M0 184h360v56H0z" fill="#174d86"/>
+  <path d="M0 184h360M26 198h334M0 214h334M0 230h360" stroke="#0d3158" stroke-width="2"/>
+  <path d="M65 184 118 240M142 184l22 56M226 184l-22 56M304 184l-55 56" stroke="#0d3158" stroke-width="2"/>
+  <text x="10" y="29" fill="#fff" font-family="Courier New, monospace" font-size="20" font-weight="700">Level: 2</text>
+  <text x="10" y="58" fill="#fff" font-family="Courier New, monospace" font-size="20" font-weight="700">Targets: 8</text>
+  <text x="10" y="87" fill="#ff4646" font-family="Courier New, monospace" font-size="20" font-weight="700">Time: 82.9s</text>
+  <circle cx="182" cy="132" r="7" fill="#12d927" stroke="#050505" stroke-width="2"/>
+  <g transform="translate(54 106) rotate(5)">
+    <rect width="66" height="28" fill="#7a740b"/>
+    <polygon points="66,0 82,17 82,45 66,28" fill="#c4bd22"/>
+    <polygon points="0,28 66,28 82,45 14,45" fill="#575108"/>
+  </g>
+  <g transform="translate(258 172) rotate(-8)">
+    <rect width="27" height="19" fill="#7d4b12"/>
+    <polygon points="27,0 34,6 34,24 27,19" fill="#a66b1e"/>
+  </g>
+</svg>

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 240">
+  <rect width="360" height="240" fill="#8db516"/>
+  <rect width="360" height="240" fill="url(#g)"/>
+  <defs>
+    <radialGradient id="g" cx="52%" cy="46%" r="70%">
+      <stop offset="0" stop-color="#b7d943"/>
+      <stop offset="1" stop-color="#72980b"/>
+    </radialGradient>
+  </defs>
+  <text x="60" y="55" fill="#263f24" font-family="Arial Black, Arial" font-size="42" font-weight="900" transform="skewX(-12)">SNAKE</text>
+  <path d="M68 146c20-42 75-30 104-14 28 15 55 24 88 5 24-14 48-12 62 8 14 21-2 48-36 48h-54c-39 0-66-19-96-30-25-10-54 2-68-17z" fill="none" stroke="#2a4b25" stroke-width="22" stroke-linecap="round"/>
+  <path d="M52 148c14-38 52-62 88-54 25 5 46 25 58 48" fill="none" stroke="#2a4b25" stroke-width="22" stroke-linecap="round"/>
+  <circle cx="75" cy="135" r="25" fill="#2a4b25"/>
+  <circle cx="66" cy="128" r="4" fill="#dff2a0"/>
+  <circle cx="86" cy="130" r="4" fill="#dff2a0"/>
+  <path d="M52 142h-22" stroke="#2a4b25" stroke-width="7" stroke-linecap="round"/>
+</svg>

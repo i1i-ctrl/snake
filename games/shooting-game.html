@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Target Shooter - Time Attack</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Courier New', Courier, monospace;
+            user-select: none;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #fff;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 0px #000;
+            pointer-events: none;
+            z-index: 10;
+        }
+        #time-text {
+            color: #ff3333; 
+        }
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 12px;
+            height: 12px;
+            background-color: rgba(0, 255, 0, 0.8);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 10;
+            border: 2px solid #000;
+        }
+        #overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            z-index: 20;
+            cursor: pointer;
+            text-align: center;
+        }
+        #overlay-title { 
+            font-size: 48px; 
+            margin-bottom: 10px; 
+            color: #ff3333; 
+            text-shadow: 0 0 10px #ff3333; 
+        }
+        #overlay-desc { 
+            font-size: 20px; 
+            color: #ccc; 
+        }
+    </style>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <div id="level-text">Level: 1</div>
+        <div id="target-text">Targets: 0</div>
+        <div id="time-text">Time: ∞</div>
+    </div>
+    
+    <div id="crosshair"></div>
+
+    <div id="overlay">
+        <h1 id="overlay-title">TARGET PRACTICE</h1>
+        <p id="overlay-desc">Click anywhere to Play<br><br>WASD = Move | SPACE = Jump | CLICK = Shoot</p>
+    </div>
+
+<script>
+// --- 1. Basic Three.js Setup ---
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1a2e); 
+scene.fog = new THREE.Fog(0x1a1a2e, 0, 300); 
+
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// --- 2. Lighting ---
+const ambientLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+scene.add(ambientLight);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+dirLight.position.set(100, 200, 50);
+scene.add(dirLight);
+
+// --- 3. The Environment ---
+const floorGeometry = new THREE.PlaneGeometry(1000, 1000, 50, 50);
+floorGeometry.rotateX(-Math.PI / 2); 
+const floorMaterial = new THREE.MeshLambertMaterial({ color: 0x0f3460 }); 
+const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+scene.add(floor);
+
+const gridHelper = new THREE.GridHelper(1000, 100, 0x000000, 0x000000);
+gridHelper.material.opacity = 0.3;
+gridHelper.material.transparent = true;
+scene.add(gridHelper);
+
+// --- 4. Controls & UI logic ---
+const controls = new THREE.PointerLockControls(camera, document.body);
+const overlay = document.getElementById('overlay');
+const overlayTitle = document.getElementById('overlay-title');
+const overlayDesc = document.getElementById('overlay-desc');
+
+let isGameOver = false;
+
+overlay.addEventListener('click', () => {
+    if (isGameOver) {
+        resetGame();
+    } else {
+        controls.lock();
+    }
+});
+
+controls.addEventListener('lock', () => {
+    overlay.style.display = 'none';
+});
+
+controls.addEventListener('unlock', () => {
+    overlay.style.display = 'flex';
+    if (!isGameOver) {
+        overlayTitle.innerText = "PAUSED";
+        overlayTitle.style.color = "#ffffff";
+        overlayTitle.style.textShadow = "none";
+        overlayDesc.innerText = "Click anywhere to resume";
+    }
+});
+
+const keys = { w: false, a: false, s: false, d: false, space: false };
+document.addEventListener('keydown', (e) => {
+    if(e.code === 'KeyW') keys.w = true;
+    if(e.code === 'KeyA') keys.a = true;
+    if(e.code === 'KeyS') keys.s = true;
+    if(e.code === 'KeyD') keys.d = true;
+    if(e.code === 'Space') keys.space = true;
+});
+document.addEventListener('keyup', (e) => {
+    if(e.code === 'KeyW') keys.w = false;
+    if(e.code === 'KeyA') keys.a = false;
+    if(e.code === 'KeyS') keys.s = false;
+    if(e.code === 'KeyD') keys.d = false;
+    if(e.code === 'Space') keys.space = false;
+});
+
+// --- 5. Game Logic Variables ---
+let targets = [];
+let particles = []; 
+let level = 1;
+let targetsRemaining = 0;
+
+let hasTimer = false;
+let timeLeft = 0;
+
+const levelText = document.getElementById('level-text');
+const targetText = document.getElementById('target-text');
+const timeText = document.getElementById('time-text');
+
+const targetColors = [0xff3366, 0x33ff66, 0x3366ff, 0xffff33, 0x00ffff, 0xff9933, 0xff00ff];
+
+// --- 6. Spawning & Reset Logic ---
+function spawnLevel() {
+    targetsRemaining = level * 4; 
+    
+    levelText.innerText = `Level: ${level}`;
+    targetText.innerText = `Targets: ${targetsRemaining}`;
+
+    // Timer Logic!
+    if (level === 1) {
+        hasTimer = false;
+        timeText.innerText = `Time: \u221E`;
+        timeText.style.color = "#fff";
+    } else {
+        hasTimer = true;
+        timeLeft = 90.0; // Always restart to exactly 90 seconds
+        timeText.innerText = `Time: ${timeLeft.toFixed(1)}s`; // Update UI instantly
+        timeText.style.color = "#ff3333";
+    }
+
+    const geometry = new THREE.BoxGeometry(3, 3, 3);
+
+    for (let i = 0; i < targetsRemaining; i++) {
+        const randomColor = targetColors[Math.floor(Math.random() * targetColors.length)];
+        const material = new THREE.MeshLambertMaterial({ color: randomColor });
+        const target = new THREE.Mesh(geometry, material);
+        
+        target.position.x = (Math.random() - 0.5) * 80;
+        target.position.y = Math.random() * 20 + 5;
+        target.position.z = (Math.random() - 0.5) * 80 - 20;
+
+        target.userData = {
+            vx: (Math.random() - 0.5) * level * 0.15,
+            vy: (Math.random() - 0.5) * level * 0.15,
+            vz: (Math.random() - 0.5) * level * 0.15,
+            color: randomColor 
+        };
+
+        scene.add(target);
+        targets.push(target);
+    }
+}
+
+function gameOver() {
+    isGameOver = true;
+    controls.unlock(); 
+    overlayTitle.innerText = "GAME OVER";
+    overlayTitle.style.color = "#ff0000";
+    overlayTitle.style.textShadow = "0 0 20px #ff0000";
+    overlayDesc.innerHTML = `You ran out of time on Level ${level}.<br><br>Click anywhere to Restart.`;
+}
+
+function resetGame() {
+    targets.forEach(t => scene.remove(t));
+    particles.forEach(p => scene.remove(p));
+    targets = [];
+    particles = [];
+    
+    level = 1;
+    isGameOver = false;
+    
+    controls.getObject().position.set(0, playerHeight, 0);
+    velocity.set(0, 0, 0);
+    
+    spawnLevel();
+    controls.lock(); 
+}
+
+// --- 7. Particle Explosion Function ---
+const particleGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+
+function createExplosion(x, y, z, color) {
+    const particleMat = new THREE.MeshLambertMaterial({ color: color });
+    
+    for (let i = 0; i < 20; i++) {
+        const p = new THREE.Mesh(particleGeo, particleMat);
+        p.position.set(x, y, z);
+        
+        p.userData = {
+            vx: (Math.random() - 0.5) * 40,
+            vy: (Math.random() - 0.2) * 40, 
+            vz: (Math.random() - 0.5) * 40,
+            life: 1.0 
+        };
+        
+        scene.add(p);
+        particles.push(p);
+    }
+}
+
+spawnLevel();
+
+// --- 8. Shooting Mechanics ---
+const raycaster = new THREE.Raycaster();
+document.addEventListener('mousedown', () => {
+    if (!controls.isLocked || isGameOver) return;
+
+    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+    const hits = raycaster.intersectObjects(targets);
+
+    if (hits.length > 0) {
+        const hitObject = hits[0].object;
+        
+        createExplosion(hitObject.position.x, hitObject.position.y, hitObject.position.z, hitObject.userData.color);
+        
+        scene.remove(hitObject);
+        targets = targets.filter(t => t !== hitObject);
+        
+        targetsRemaining--;
+        targetText.innerText = `Targets: ${targetsRemaining}`;
+
+        if (targetsRemaining <= 0) {
+            level++;
+            spawnLevel();
+        }
+    }
+});
+
+// --- 9. Physics / Animation Loop ---
+let velocity = new THREE.Vector3();
+let direction = new THREE.Vector3();
+let prevTime = performance.now();
+const playerHeight = 5;
+
+camera.position.y = playerHeight;
+
+function animate() {
+    requestAnimationFrame(animate);
+
+    const time = performance.now();
+    const delta = (time - prevTime) / 1000;
+
+    // Timer Update
+    if (hasTimer && !isGameOver && controls.isLocked) {
+        timeLeft -= delta;
+        timeText.innerText = `Time: ${timeLeft.toFixed(1)}s`;
+        if (timeLeft <= 0) {
+            timeText.innerText = `Time: 0.0s`;
+            gameOver();
+        }
+    }
+
+    // Target Movement
+    if (level > 1 && !isGameOver) {
+        targets.forEach(t => {
+            t.position.x += t.userData.vx;
+            t.position.y += t.userData.vy;
+            t.position.z += t.userData.vz;
+
+            if (t.position.x > 50 || t.position.x < -50) t.userData.vx *= -1;
+            if (t.position.y > 40 || t.position.y < 2) t.userData.vy *= -1;
+            if (t.position.z > 50 || t.position.z < -100) t.userData.vz *= -1;
+            
+            t.rotation.x += 0.02 * level;
+            t.rotation.y += 0.02 * level;
+        });
+    }
+
+    // Particle Physics
+    for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i];
+        p.position.x += p.userData.vx * delta;
+        p.position.y += p.userData.vy * delta;
+        p.position.z += p.userData.vz * delta;
+        
+        p.userData.vy -= 9.8 * 6 * delta; 
+        p.userData.life -= 1.2 * delta;   
+
+        if (p.userData.life <= 0) {
+            scene.remove(p);
+            particles.splice(i, 1);
+        } else {
+            p.scale.setScalar(p.userData.life);
+        }
+    }
+
+    // Player Movement Physics
+    if (controls.isLocked && !isGameOver) {
+        velocity.x -= velocity.x * 10.0 * delta;
+        velocity.z -= velocity.z * 10.0 * delta;
+        velocity.y -= 9.8 * 15.0 * delta; 
+
+        direction.z = Number(keys.w) - Number(keys.s);
+        direction.x = Number(keys.d) - Number(keys.a);
+        direction.normalize(); 
+
+        if (keys.w || keys.s) velocity.z -= direction.z * 400.0 * delta;
+        if (keys.a || keys.d) velocity.x -= direction.x * 400.0 * delta;
+
+        controls.moveRight(-velocity.x * delta);
+        controls.moveForward(-velocity.z * delta);
+        controls.getObject().position.y += (velocity.y * delta);
+
+        if (controls.getObject().position.y < playerHeight) {
+            velocity.y = 0;
+            controls.getObject().position.y = playerHeight;
+            if (keys.space) velocity.y = 80; 
+        }
+    }
+
+    renderer.render(scene, camera);
+    prevTime = time;
+}
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+animate();
+</script>
+
+</body>
+</html>

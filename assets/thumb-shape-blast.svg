@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 240">
+  <rect width="360" height="240" fill="#e4ecf6"/>
+  <g fill="#cbd6e6" stroke="#edf3fb" stroke-width="3">
+    <rect x="28" y="8" width="42" height="42" rx="5"/><rect x="75" y="8" width="42" height="42" rx="5"/><rect x="122" y="8" width="42" height="42" rx="5"/><rect x="169" y="8" width="42" height="42" rx="5"/><rect x="216" y="8" width="42" height="42" rx="5"/><rect x="263" y="8" width="42" height="42" rx="5"/>
+    <rect x="28" y="55" width="42" height="42" rx="5"/><rect x="75" y="55" width="42" height="42" rx="5"/><rect x="122" y="55" width="42" height="42" rx="5"/><rect x="169" y="55" width="42" height="42" rx="5"/><rect x="216" y="55" width="42" height="42" rx="5"/><rect x="263" y="55" width="42" height="42" rx="5"/>
+    <rect x="28" y="102" width="42" height="42" rx="5"/><rect x="75" y="102" width="42" height="42" rx="5"/><rect x="122" y="102" width="42" height="42" rx="5"/><rect x="169" y="102" width="42" height="42" rx="5"/><rect x="216" y="102" width="42" height="42" rx="5"/><rect x="263" y="102" width="42" height="42" rx="5"/>
+    <rect x="28" y="149" width="42" height="42" rx="5"/><rect x="75" y="149" width="42" height="42" rx="5"/><rect x="122" y="149" width="42" height="42" rx="5"/><rect x="169" y="149" width="42" height="42" rx="5"/><rect x="216" y="149" width="42" height="42" rx="5"/><rect x="263" y="149" width="42" height="42" rx="5"/>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="65" y="88" width="42" height="42" rx="7" fill="#ff525d"/>
+    <rect x="112" y="88" width="42" height="42" rx="7" fill="#ff525d"/>
+    <rect x="112" y="135" width="42" height="42" rx="7" fill="#ff525d"/>
+    <rect x="159" y="135" width="42" height="42" rx="7" fill="#ff525d"/>
+    <rect x="206" y="135" width="42" height="42" rx="7" fill="#218dcc"/>
+    <rect x="206" y="182" width="42" height="42" rx="7" fill="#ffca3a"/>
+    <rect x="253" y="182" width="42" height="42" rx="7" fill="#ffca3a"/>
+  </g>
+  <defs>
+    <filter id="shadow" x="0" y="0" width="360" height="240">
+      <feDropShadow dx="0" dy="5" stdDeviation="3" flood-color="#63728a" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+</svg>
