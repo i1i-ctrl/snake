@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snake Game</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game-shell">
+    <section class="top-bar" aria-label="Game information">
+      <div>
+        <p class="eyebrow">Games Portal</p>
+        <h1>Snake</h1>
+      </div>
+
+      <div class="score-panel" aria-live="polite">
+        <span>Score</span>
+        <strong id="score">0</strong>
+      </div>
+    </section>
+
+    <section class="board-wrap" aria-label="Snake game board">
+      <canvas id="game-board" width="480" height="480"></canvas>
+      <div id="message" class="message">
+        <strong>Press Start</strong>
+        <span>Use the arrow keys to move.</span>
+      </div>
+    </section>
+
+    <section class="controls" aria-label="Game controls">
+      <button id="start-button" type="button">Start</button>
+      <button id="pause-button" type="button">Pause</button>
+      <button id="restart-button" type="button">Restart</button>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
