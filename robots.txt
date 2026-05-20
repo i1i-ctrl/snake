@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://i1i-ctrl.github.io/snake/sitemap.xml
