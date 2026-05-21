@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3 AM Smoke Detector</title>
+    <style>
+        :root {
+            --bg-color: #0a0a0a;
+            --text-color: #e0e0e0;
+            --accent-red: #ff3333;
+            --accent-green: #33ff33;
+            --panel-bg: #1a1a1a;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            transition: background-color 0.1s;
+            overflow: hidden;
+        }
+
+        #game-container {
+            background-color: var(--panel-bg);
+            padding: 30px;
+            border-radius: 10px;
+            border: 2px solid #333;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            text-align: center;
+        }
+
+        h1 {
+            margin-top: 0;
+            font-size: 1.5rem;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .digital-clock {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--accent-red);
+            text-shadow: 0 0 10px var(--accent-red);
+            margin: 20px 0;
+            font-family: monospace;
+        }
+
+        .status-box {
+            background-color: #000;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border: 1px solid #444;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .meter-container {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .meter-label {
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .meter-bg {
+            background-color: #333;
+            height: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid #555;
+        }
+
+        .meter-fill {
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s, background-color 0.3s;
+        }
+
+        #insanity-fill { background-color: var(--accent-green); }
+        #awareness-fill { background-color: var(--accent-red); }
+
+        .btn-chirp {
+            background-color: #eee;
+            color: #111;
+            border: none;
+            padding: 20px 40px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(255,255,255,0.2);
+            transition: transform 0.1s, background-color 0.1s;
+            text-transform: uppercase;
+            width: 100%;
+        }
+
+        .btn-chirp:active {
+            transform: scale(0.95);
+            background-color: #ccc;
+        }
+
+        .btn-chirp:disabled {
+            background-color: #333;
+            color: #666;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        #screens overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .hidden { display: none !important; }
+
+        .flash {
+            animation: red-flash 0.2s;
+        }
+
+        @keyframes red-flash {
+            0% { background-color: #3a0000; }
+            100% { background-color: var(--bg-color); }
+        }
+        
+        button.restart {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: #fff;
+            color: #000;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <h1>Smoke Detector Sim</h1>
+        
+        <div class="digital-clock" id="clock">02:00 AM</div>
+        
+        <div class="status-box" id="homeowner-status">
+            Homeowner is sleeping soundly.
+        </div>
+
+        <div class="meter-container">
+            <div class="meter-label">
+                <span>Homeowner Insanity</span>
+                <span id="insanity-val">0%</span>
+            </div>
+            <div class="meter-bg">
+                <div class="meter-fill" id="insanity-fill"></div>
+            </div>
+        </div>
+
+        <div class="meter-container">
+            <div class="meter-label">
+                <span>Homeowner Awareness (Danger!)</span>
+                <span id="awareness-val">0%</span>
+            </div>
+            <div class="meter-bg">
+                <div class="meter-fill" id="awareness-fill"></div>
+            </div>
+        </div>
+
+        <button class="btn-chirp" id="btn-chirp">CHIRP</button>
+        <p style="font-size: 0.75rem; color: #777; margin-top: 15px;">
+            Goal: Drive insanity to 100% before 6:00 AM.<br>
+            Rule: Don't chirp if awareness is high, or they will find your battery!
+        </p>
+    </div>
+
+    <!-- Game Over / Win Screens -->
+    <div id="end-screen" class="hidden" style="position: absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:100;">
+        <h1 id="end-title" style="font-size: 3rem;">GAME OVER</h1>
+        <p id="end-desc" style="font-size: 1.2rem; max-width: 400px; text-align: center;">They found the ladder.</p>
+        <button class="restart" onclick="location.reload()">Play Again</button>
+    </div>
+
+    <script>
+        // Audio Context setup for the horrible beep
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+
+        function playChirpSound() {
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.type = 'square'; // Harsh electronic sound
+            oscillator.frequency.setValueAtTime(3200, audioCtx.currentTime); // High pitch
+
+            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.01);
+            gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.15); // Short chirp
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.start(audioCtx.currentTime);
+            oscillator.stop(audioCtx.currentTime + 0.2);
+        }
+
+        // Game State
+        let timeMinutes = 120; // 2:00 AM
+        let insanity = 0;
+        let awareness = 0;
+        let gameLoop;
+        let isGameOver = false;
+
+        // DOM Elements
+        const clockEl = document.getElementById('clock');
+        const statusEl = document.getElementById('homeowner-status');
+        const insanityFill = document.getElementById('insanity-fill');
+        const insanityVal = document.getElementById('insanity-val');
+        const awarenessFill = document.getElementById('awareness-fill');
+        const awarenessVal = document.getElementById('awareness-val');
+        const btnChirp = document.getElementById('btn-chirp');
+        const endScreen = document.getElementById('end-screen');
+        const endTitle = document.getElementById('end-title');
+        const endDesc = document.getElementById('end-desc');
+
+        function formatTime(mins) {
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            const displayH = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            return `${displayH.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} ${ampm}`;
+        }
+
+        function updateUI() {
+            clockEl.textContent = formatTime(timeMinutes);
+            
+            insanityFill.style.width = `${insanity}%`;
+            insanityVal.textContent = `${Math.floor(insanity)}%`;
+            
+            awarenessFill.style.width = `${awareness}%`;
+            awarenessVal.textContent = `${Math.floor(awareness)}%`;
+
+            // Change colors based on danger
+            if (awareness > 80) awarenessFill.style.backgroundColor = '#ff0000';
+            else if (awareness > 50) awarenessFill.style.backgroundColor = '#ff9900';
+            else awarenessFill.style.backgroundColor = 'var(--accent-red)';
+
+            // Status text
+            if (awareness > 85) {
+                statusEl.textContent = "Standing on a chair right under you! DO NOT CHIRP!";
+                statusEl.style.color = "#ff3333";
+            } else if (awareness > 60) {
+                statusEl.textContent = "Stomping down the hallway with a flashlight...";
+                statusEl.style.color = "#ff9900";
+            } else if (awareness > 30) {
+                statusEl.textContent = "Tossing, turning, and grumbling in bed.";
+                statusEl.style.color = "#ffff66";
+            } else {
+                statusEl.textContent = "Homeowner is sleeping soundly.";
+                statusEl.style.color = "#aaa";
+            }
+        }
+
+        function endGame(win, reason) {
+            isGameOver = true;
+            clearInterval(gameLoop);
+            btnChirp.disabled = true;
+            
+            endScreen.classList.remove('hidden');
+            if (win) {
+                endTitle.textContent = "YOU WIN!";
+                endTitle.style.color = "var(--accent-green)";
+            } else {
+                endTitle.textContent = "GAME OVER";
+                endTitle.style.color = "var(--accent-red)";
+            }
+            endDesc.textContent = reason;
+        }
+
+        function tick() {
+            if (isGameOver) return;
+
+            timeMinutes++;
+            
+            // Decays
+            if (awareness > 0) awareness = Math.max(0, awareness - 4);
+            if (insanity > 0) insanity = Math.max(0, insanity - 0.5);
+
+            // Win/Loss conditions based on time/passive states
+            if (timeMinutes >= 360) { // 6:00 AM
+                endGame(false, "The sun came up. They called an electrician to replace you. You lose.");
+                return;
+            }
+
+            if (awareness >= 100) {
+                endGame(false, "You chirped too frequently! They tracked the sound and ripped your battery out.");
+                return;
+            }
+
+            if (insanity >= 100) {
+                endGame(true, "The homeowner had a mental breakdown and left for a hotel. Your ceiling dominance is secured.");
+                return;
+            }
+
+            updateUI();
+        }
+
+        btnChirp.addEventListener('click', () => {
+            if (isGameOver) return;
+            
+            // Play sound and flash screen
+            playChirpSound();
+            document.body.classList.add('flash');
+            setTimeout(() => document.body.classList.remove('flash'), 200);
+
+            // Instant death check
+            if (awareness > 85) {
+                endGame(false, "You chirped while they were standing right under you! They ripped your battery out with bare hands.");
+                return;
+            }
+
+            // Stat changes
+            insanity = Math.min(100, insanity + 12);
+            awareness = Math.min(100, awareness + 35);
+            
+            updateUI();
+
+            // Check instant win
+            if (insanity >= 100) {
+                endGame(true, "The homeowner had a mental breakdown and left for a hotel. Your ceiling dominance is secured.");
+            }
+        });
+
+        // Start game loop (1 in-game minute = 600ms real time)
+        updateUI();
+        gameLoop = setInterval(tick, 600);
+
+    </script>
+</body>
+</html>
